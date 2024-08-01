@@ -1,0 +1,175 @@
+---
+title: "Camera Trap - Représentativité des sites Mt Blanc - Data prep - Bauges"
+author: "Jeremy Froidevaux"
+date: "2023-11-07"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls()) 
+```
+
+
+## Load libraries
+```{r}
+library <- c("terra","ggplot2","grid","gridExtra","cowplot","landscapemetrics","data.table","maps",
+             "ggsn","dplyr","rworldmap","reshape2","sf","terra","tidyverse","purrr") 
+lapply(library, require, character.only = TRUE) 
+```
+
+## Data manipulation with raster and shape files
+### Open CameraTrap csv file (and landus csv file if needed)
+```{r}
+camtrap<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfoBauges_20231127.csv")
+
+```
+
+### Transformation of latlong in vector and georeferenced data vizualization
+```{r}
+#All data
+
+pts <- st_as_sf(camtrap,coords=c("long","lat"))
+str(pts)
+st_crs(pts) <- 2154
+st_crs(pts)
+st_write(pts, "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap/camtrap_locBauges", driver = "ESRI Shapefile")
+
+```
+
+### Plot rasters and camtrap loc
+```{r}
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap"  
+name.points = "camtrap_locBauges"
+loc<-st_read(dsn = dir.posPoints, layer = name.points)
+dir.posEnvironmentalLayers = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/PRED/LC_pred_BAUGES_08062023.tif"
+orionrast<-rast(dir.posEnvironmentalLayers) 
+orionrast
+loc
+plot(orionrast)
+points(loc)
+
+```
+
+
+## Data extraction
+### Part 1: Extract landuse proportion from ORION at local and landscape scales
+
+```{r}
+root <- "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Functions/" 
+source(paste(root,"ExtractBufferRaster_KB_JF.r",sep="")) 
+
+extractLandUseRaster( dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap",  
+                                name.points = "camtrap_locBauges",
+                                bw = c(20,250),
+                                id = "Station",  
+                                dir.posEnvironmentalLayers = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/PRED/LC_pred_BAUGES_08062023.tif",  
+                                WorkingDirectory = "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/") 
+
+```
+
+### Part 2: Extract data on landscape configurational and compositional diversity using ORION
+
+```{r}
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap"  
+name.points = "camtrap_locBauges"
+loc<-st_read(dsn = dir.posPoints, layer = name.points)
+dir.posEnvironmentalLayers = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/PRED/LC_pred_BAUGES_08062023.tif"
+orionrast<-rast(dir.posEnvironmentalLayers) 
+orionrast
+loc
+plot(orionrast)
+points(loc)
+list<-list_lsm() #Choose landscape metric 
+
+plm20 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$Station,  
+                    size = 20, level= "landscape",metric=c("shdi","ed")) 
+plm250 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$Station,  
+                    size = 250, level= "landscape",metric=c("shdi","ed")) 
+pcm20 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$Station,  
+                    size = 20, level= "class",metric=c("ed")) 
+pcm250 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$Station,  
+                    size = 250, level= "class",metric=c("ed")) 
+
+plm20$scale<-20 
+plm250$scale<-250
+pcm20$scale<-20 
+pcm250$scale<-250
+
+pcm20sel<-pcm20[pcm20$class %in% c("5"), ]
+pcm250sel<-pcm250[pcm250$class %in% c("5"), ]
+pcm20sel$metric[pcm20sel$metric == 'ed'] <- 'edl'
+pcm250sel$metric[pcm250sel$metric == 'ed'] <- 'edl'
+
+df_list <- list(plm20,plm250,pcm20sel,pcm250sel)
+mplm<-Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+
+div <- dcast(mplm, plot_id + scale~ metric, fun.aggregate = sum)
+
+#ggplot(subset(rmplm, scale %in% 50))+
+#  geom_histogram(aes(x=ed))
+
+div20<-subset(div,scale=="20")
+div20<-div20 %>% rename_with(~paste0(.x,"20"), c(ed,edl,shdi ))
+
+div250<-subset(div,scale=="250")
+div250<-div250 %>% rename_with(~paste0(.x,"250"), c(ed,edl,shdi ))
+
+df_list <- list(div20, div250)
+divf<-df_list %>% reduce(full_join, by='plot_id')
+divf<-divf %>% dplyr::select(-contains("scale"))
+colnames(divf)[colnames(divf) == "plot_id"] <- "Station"
+
+write.csv(divf, "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/landscapeMetric_outputBauges.csv", row.names=FALSE) 
+
+```
+
+### Part 4: DEM
+#### Crop DEM to study area
+```{r}
+dir.dem = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Topo/DEM_Alps/DEM_ALPS1.tif"
+dem<-rast(dir.dem)
+demproj<-project(dem, "EPSG:2154") #EPSG:2154 pour Lambert93
+demproj
+plot(demproj,axes = T,legend=FALSE)
+
+dir.posEnvironmentalLayers = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/PRED/LC_pred_BAUGES_08062023.tif"
+orionm<-rast(dir.posEnvironmentalLayers)
+demBauges<-crop(demproj, orionm, snap="near", extend=FALSE,mask=TRUE)
+
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap"  
+name.points = "camtrap_locBauges"
+loc<-st_read(dsn = dir.posPoints, layer = name.points)
+plot(demBauges,axes = T,legend=T)
+points(loc)
+
+writeRaster(demBauges,file="/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Topo/DEM_Alps/DEM_Bauges.tif")
+```
+
+#### Extract elevation, slope and aspect 
+```{r}
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap"  
+name.points = "camtrap_locBauges"
+loc<-st_read(dsn = dir.posPoints, layer = name.points)
+#loc <- st_transform(loc,crs=32632)
+loc
+dir.dem = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Topo/DEM_Alps/DEM_Bauges.tif"
+dem<-rast(dir.dem)
+slope <- terrain(dem, "slope",neighbors = 8, unit = "degrees")
+aspect <- terrain(dem, 'aspect', neighbors = 8, unit = "degrees")
+
+plot(slope)
+points(loc)
+
+elevationCT<-extract(dem, loc)
+slopeCT<-extract(slope, loc)
+aspectCT<-extract(aspect, loc)
+
+demCT<-bind_cols(elevationCT,slopeCT,aspectCT)
+demCT<-data.frame(Station=camtrap$Station, demCT)
+demCT<-demCT[ -c(2,4,6) ]
+colnames(demCT)[2] ="elevation"
+write.csv(demCT,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/dem_outputBauges.csv")
+```

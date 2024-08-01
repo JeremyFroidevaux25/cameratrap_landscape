@@ -1,0 +1,216 @@
+---
+title: "Camera Trap - Représentativité des sites Mt Blanc - Data prep"
+author: "Jeremy Froidevaux"
+date: "2023-11-07"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls()) 
+```
+
+
+## Load libraries
+```{r}
+library <- c("terra","ggplot2","grid","gridExtra","cowplot","landscapemetrics","data.table","maps",
+             "ggsn","dplyr","rworldmap","reshape2","sf","terra","tidyverse","purrr") 
+lapply(library, require, character.only = TRUE) 
+```
+
+## Data manipulation with raster and shape files
+### Open CameraTrap csv file (and landus csv file if needed)
+```{r}
+camtrap<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfo_20231116.csv")
+camtrap<-camtrap[camtrap$running=="Y",] #camtrap active
+camtrapVCM<-camtrap[camtrap$lat>45.85,] #ComCom Chamonix
+camtrapVCM$milieu<-gsub("lande sur crete", "lande",camtrapVCM$milieu)
+camtrapVCM<-camtrapVCM[!grepl("campagnol", camtrapVCM$Station),] #remove site with campagnol
+camtrapVCM_orchamp<-camtrapVCM[grepl("Y", camtrapVCM$ORCHAMP),] #focuis on orchamlp sites
+
+write.csv(camtrapVCM,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfo_20231113_sel.csv")
+write.csv(camtrapVCM_orchamp,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfo_orchamp_20231113_sel.csv")
+
+#camtrapPMB<-camtrap[camtrap$lat<45.85,] #ComCom vallée du mont blanc
+
+#landus<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/landus_20231109.csv")
+#summary(factor(landus$ref_project))
+```
+
+### Transformation of latlong in vector and georeferenced data vizualization
+```{r}
+#All data
+lonlat<-cbind(camtrapVCM$long,camtrapVCM$lat)
+crdref <- "+proj=longlat +datum=WGS84"
+pts <- vect(lonlat, crs=crdref)
+pts
+pts$id<-camtrapVCM$Station
+pts$orchamp<-camtrapVCM$ORCHAMP
+class(pts)
+plot(pts)
+pts
+geom(pts)
+outfile <- "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/CamTrap_location/camtrap_loc.shp"
+writeVector(pts, outfile, overwrite=TRUE)
+
+#Focus on orchamp
+lonlat<-cbind(camtrapVCM_orchamp$long,camtrapVCM_orchamp$lat)
+crdref <- "+proj=longlat +datum=WGS84"
+pts <- vect(lonlat, crs=crdref)
+pts
+pts$id<-camtrapVCM_orchamp$Station
+class(pts)
+plot(pts)
+pts
+geom(pts)
+outfile <- "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/CamTrap_location/camtrap_orchamp_loc.shp"
+writeVector(pts, outfile, overwrite=TRUE)
+
+```
+
+### Plot & combine rasters
+```{r}
+
+dir.posEnvironmentalLayers1 = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/LC_pred_CCVCMB_2806023_FINAL.tif"
+orionrast1<-rast(dir.posEnvironmentalLayers1)
+dir.posEnvironmentalLayers2 = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/LC_pred_CCPMB_2806023_FINAL.tif"
+orionrast2<-rast(dir.posEnvironmentalLayers2) 
+#summary(factor(values(orionrast1)))
+#summary(factor(values(orionrast2)))
+
+plot(orionrast1)
+plot(orionrast2)
+s <- sprc(orionrast1, orionrast2)
+
+orionrastm <- terra::merge(s)
+summary(factor(values(orionrastm)))
+
+writeRaster(orionrastm,file="/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/merge_CCPMB_CCVCMB_280623_FINAL.tif")
+dir.orionmerge = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/merge_CCPMB_CCVCMB_280623_FINAL.tif"
+orionrastm<-rast(dir.orionmerge)
+orionrastm
+values(orionrastm)
+summary(factor(values(orionrastm)))
+```
+
+
+## Data extraction
+### Part 1: Extract landuse proportion from ORION at local and landscape scales
+
+```{r}
+root <- "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Functions/" 
+source(paste(root,"ExtractBufferRaster_KB_JF.r",sep="")) 
+
+extractLandUseRaster( dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/CamTrap_location",  
+                                name.points = "camtrap_loc",
+                                bw = c(20,250), #ajouter 20 m - 250 m  
+                                id = "id",  
+                                dir.posEnvironmentalLayers = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/LC_pred_CCVCMB_2806023_FINAL.tif",  
+                                WorkingDirectory = "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/") 
+
+```
+
+### Part 2: Extract data on landscape configurational and compositional diversity using ORION
+
+```{r}
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/CamTrap_location"  
+name.points = "camtrap_loc"
+loc<-st_read(dsn = dir.posPoints, layer = name.points)
+loc <- st_transform(loc,crs=32632)
+dir.posEnvironmentalLayers = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/LC_pred_CCVCMB_2806023_FINAL.tif"
+orionrast<-rast(dir.posEnvironmentalLayers) 
+orionrast
+loc
+plot(orionrast)
+points(loc)
+list<-list_lsm() #Choose landscape metric 
+
+plm20 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$id,  
+                    size = 20, level= "landscape",metric=c("shdi","ed")) 
+plm250 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$id,  
+                    size = 250, level= "landscape",metric=c("shdi","ed")) 
+pcm20 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$id,  
+                    size = 20, level= "class",metric=c("ed")) 
+pcm250 <- sample_lsm(orionrast, y = loc, shape = "circle", plot_id = loc$id,  
+                    size = 250, level= "class",metric=c("ed")) 
+
+plm20$scale<-20 
+plm250$scale<-250
+pcm20$scale<-20 
+pcm250$scale<-250
+
+pcm20sel<-pcm20[pcm20$class %in% c("5"), ]
+pcm250sel<-pcm250[pcm250$class %in% c("5"), ]
+pcm20sel$metric[pcm20sel$metric == 'ed'] <- 'edl'
+pcm250sel$metric[pcm250sel$metric == 'ed'] <- 'edl'
+
+df_list <- list(plm20,plm250,pcm20sel,pcm250sel)
+mplm<-Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+
+div <- dcast(mplm, plot_id + scale~ metric, fun.aggregate = sum)
+
+#ggplot(subset(rmplm, scale %in% 50))+
+#  geom_histogram(aes(x=ed))
+
+div20<-subset(div,scale=="20")
+div20<-div20 %>% rename_with(~paste0(.x,"20"), c(ed,edl,shdi ))
+
+div250<-subset(div,scale=="250")
+div250<-div250 %>% rename_with(~paste0(.x,"250"), c(ed,edl,shdi ))
+
+df_list <- list(div20, div250)
+divf<-df_list %>% reduce(full_join, by='plot_id')
+divf<-divf %>% dplyr::select(-contains("scale"))
+colnames(divf)[colnames(divf) == "plot_id"] <- "id"
+
+write.csv(divf, "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/landscapeMetric_outputVCMsel.csv", row.names=FALSE) 
+
+```
+
+### Part 4: DEM
+#### Crop DEM to study area
+```{r}
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/CamTrap_location"  
+name.points = "camtrap_loc"
+dir.dem = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Topo/DEM_Alps/DEM_ALPS1.tif"
+loc<-st_read(dsn = dir.posPoints, layer = name.points)
+loc <- st_transform(loc,crs=32632)
+loc
+dem<-rast(dir.dem)
+demproj<-project(dem, "EPSG:32632")
+demproj
+plot(demproj,axes = T,legend=FALSE)
+points(loc)
+
+dir.posEnvironmentalLayers = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/merge_CCPMB_CCVCMB_280623_FINAL.tif"
+orionm<-rast(dir.posEnvironmentalLayers)
+demMB<-crop(demproj, orionm, snap="near", extend=FALSE,mask=TRUE)
+
+writeRaster(demMB,file="/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Topo/DEM_Alps/DEM_MB.tif")
+```
+
+#### Extract elevation, slope and aspect 
+```{r}
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/CamTrap_location"  
+name.points = "camtrap_loc"
+loc<-st_read(dsn = dir.posPoints, layer = name.points)
+loc <- st_transform(loc,crs=32632)
+loc
+dir.dem = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Topo/DEM_Alps/DEM_MB.tif"
+dem<-rast(dir.dem)
+slope <- terrain(dem, "slope",neighbors = 8, unit = "degrees")
+aspect <- terrain(dem, 'aspect', neighbors = 8, unit = "degrees")
+
+elevationCT<-extract(dem, loc)
+slopeCT<-extract(slope, loc)
+aspectCT<-extract(aspect, loc)
+
+demCT<-bind_cols(elevationCT,slopeCT,aspectCT)
+demCT<-data.frame(id=camtrapVCM$Station, demCT)
+demCT<-demCT[ -c(2,4,6) ]
+colnames(demCT)[2] ="elevation"
+plot(camtrapVCM$alt,demCT$elevation)
+write.csv(demCT,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/dem_outputCVMsel.csv")
+```
