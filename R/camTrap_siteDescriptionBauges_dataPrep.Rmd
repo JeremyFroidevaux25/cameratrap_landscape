@@ -9,6 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/jeremyfroidevaux/Library/CloudStorage/GoogleDrive-jfroidevaux@creamontblanc.org/Drive partagés/prototool/herbiland/analyses/cameratrap/cameratrap_landscape")
 rm(list=ls()) 
 ```
 
@@ -23,7 +24,7 @@ lapply(library, require, character.only = TRUE)
 ## Data manipulation with raster and shape files
 ### Open CameraTrap csv file (and landus csv file if needed)
 ```{r}
-camtrap<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfoBauges_20231127.csv")
+camtrap<-fread("data/camerainfoBauges_20231127.csv")
 
 ```
 
@@ -58,8 +59,7 @@ points(loc)
 ### Part 1: Extract landuse proportion from ORION at local and landscape scales
 
 ```{r}
-root <- "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Functions/" 
-source(paste(root,"ExtractBufferRaster_KB_JF.r",sep="")) 
+source("function/ExtractBufferRaster_KB_JF.r") 
 
 extractLandUseRaster( dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap",  
                                 name.points = "camtrap_locBauges",
@@ -122,7 +122,7 @@ divf<-df_list %>% reduce(full_join, by='plot_id')
 divf<-divf %>% dplyr::select(-contains("scale"))
 colnames(divf)[colnames(divf) == "plot_id"] <- "Station"
 
-write.csv(divf, "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/landscapeMetric_outputBauges.csv", row.names=FALSE) 
+write.csv(divf, "output/landscapeMetric_outputBauges.csv", row.names=FALSE) 
 
 ```
 
@@ -171,5 +171,5 @@ demCT<-bind_cols(elevationCT,slopeCT,aspectCT)
 demCT<-data.frame(Station=camtrap$Station, demCT)
 demCT<-demCT[ -c(2,4,6) ]
 colnames(demCT)[2] ="elevation"
-write.csv(demCT,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/dem_outputBauges.csv")
+write.csv(demCT,"output/dem_outputBauges.csv")
 ```

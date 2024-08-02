@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/jeremyfroidevaux/Library/CloudStorage/GoogleDrive-jfroidevaux@creamontblanc.org/Drive partagés/prototool/herbiland/analyses/cameratrap/cameratrap_landscape")
 rm(list=ls()) 
 ```
 
@@ -20,11 +21,10 @@ lapply(library, require, character.only = TRUE)
 
 ## Merge dataset
 ```{r}
-dem<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/dem_outputVCMsel.csv")
-orion<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/landuse_orion_outputVCMsel.csv")
-div<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/landscapeMetric_outputVCMsel.csv")
-camtrap<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfo_20231113_sel.csv")
-colnames(camtrap)[which(names(camtrap) == "Station")] <- "id"
+dem<-fread("output/dem_outputBauges.csv")
+orion<-fread("output/landuse_orion_outputBauges.csv")
+div<-fread("output/landscapeMetric_outputBauges.csv")
+camtrap<-fread("data/camerainfoBauges_20231127.csv")
 
 colnames(orion)<-gsub("1_", "prairieM", colnames(orion))
 colnames(orion)<-gsub("2_", "foret", colnames(orion))
@@ -37,19 +37,36 @@ colnames(orion)<-gsub("8_", "rochersolnu", colnames(orion))
 colnames(orion)<-gsub("9_", "glacierneige", colnames(orion))
 colnames(orion)<-gsub("10_", "eau", colnames(orion))
 colnames(orion)<-gsub("0_", "urbain", colnames(orion))
+orion$sampling<-substr(orion$Station, 1, 3)   
 
-df0<-merge(dem,div,by="id")
-df1<-merge(df0,orion,by="id")
+df0<-merge(dem,div,by="Station")
+df1<-merge(df0,orion,by="Station")
 df<-merge(df1,camtrap)
+
 ```
+
+#Exploration des habitats échantillonnées
+```{r}
+
+orion20<-orion[, c(3:10)]
+orion20$milieu<-colnames(orion20)[apply(orion20,1,which.max)]
+orion20$id<-orion$Station
+orion20$sampling<-substr(orion20$id, 1, 3)  
+```
+
 
 
 # Data vizualization with plotly (3D and 2D scatterplots)
 ```{r}
+hist(df$prairieS20)
+hist(df$prairieS250)
+hist(df$prairieA20)
+hist(df$prairieA250)
+
 
 p1 <- plot_ly(df, y = ~elevation, x = ~edl20, 
-               color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
-               text = ~id,size = 20,legendgroup=~milieu)
+             #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20)
 p1 <- p1 %>% add_markers()
 p1 <- p1 %>% layout(xaxis = list(title =list(text='edge density shrubland 20m (m/ha)',standoff=3)),
                     yaxis = list(title = 'elevation (m)'),
@@ -57,8 +74,8 @@ p1 <- p1 %>% layout(xaxis = list(title =list(text='edge density shrubland 20m (m
 p1
 
 p2 <- plot_ly(df, y = ~elevation, x = ~edl250, 
-               color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
-               text = ~id,size = 20,legendgroup=~milieu,showlegend = FALSE)
+              # color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20,showlegend = FALSE)
 p2 <- p2 %>% add_markers()
 p2 <- p2 %>% layout(xaxis = list(title =list(text='edge density shrub 250m (m/ha)',standoff=3)),
                     yaxis = list(title = 'elevation (m)'),
@@ -66,8 +83,8 @@ p2 <- p2 %>% layout(xaxis = list(title =list(text='edge density shrub 250m (m/ha
 p2
 
 p3 <- plot_ly(df, y = ~elevation, x = ~ed20, 
-               color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
-               text = ~id,size = 20,legendgroup=~milieu,showlegend = FALSE)
+               #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20,showlegend = FALSE)
 p3 <- p3 %>% add_markers()
 p3 <- p3 %>% layout(xaxis = list(title =list(text='edge density 20m (m/ha)',standoff=3)),
                     yaxis = list(title = 'elevation (m)'),
@@ -75,8 +92,8 @@ p3 <- p3 %>% layout(xaxis = list(title =list(text='edge density 20m (m/ha)',stan
 p3
 
 p4 <- plot_ly(df, y = ~elevation, x = ~shdi20, 
-               color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
-               text = ~id,size = 20,legendgroup=~milieu,showlegend = FALSE)
+               #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20,showlegend = FALSE)
 p4 <- p4 %>% add_markers()
 p4 <- p4 %>% layout(xaxis = list(title =list(text='shannon diversity 20m',standoff=3)),
                     yaxis = list(title = 'elevation (m)'),
@@ -84,8 +101,8 @@ p4 <- p4 %>% layout(xaxis = list(title =list(text='shannon diversity 20m',stando
 p4
 
 p5 <- plot_ly(df, y = ~elevation, x = ~ed250, 
-               color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
-               text = ~id,size = 20,legendgroup=~milieu,showlegend = FALSE)
+               #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20,showlegend = FALSE)
 p5 <- p5 %>% add_markers()
 p5 <- p5 %>% layout(xaxis = list(title =list(text='edge density 250m (m/ha)',standoff=3)),
                     yaxis = list(title = 'elevation (m)'),
@@ -93,8 +110,8 @@ p5 <- p5 %>% layout(xaxis = list(title =list(text='edge density 250m (m/ha)',sta
 p5
 
 p6 <- plot_ly(df, y = ~elevation, x = ~shdi250, 
-               color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
-               text = ~id,size = 20,legendgroup=~milieu,showlegend = FALSE)
+               #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20,showlegend = FALSE)
 p6 <- p6 %>% add_markers()
 p6 <- p6 %>% layout(xaxis = list(title =list(text='shannon diversity 250m',standoff=3)),
                     yaxis = list(title = 'elevation (m)'),
@@ -105,7 +122,7 @@ fig <- subplot(p1,p2,p3,p5,p4,p6,nrows = 3,titleY = TRUE, titleX = TRUE,shareY=T
                widths = c(0.5,0.5), heights = c(0.33,0.33,0.33)) |> 
   layout(title = "elevation~landscapeConfigCompo~habitat")
 fig
-htmlwidgets::saveWidget(as_widget(fig), "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Plot/elevation_landscapeconfigcompo_habitat.html")
+htmlwidgets::saveWidget(as_widget(fig), "figures/elevation_landscapeconfigcompo_habitat_Bauges.html")
 
 fig
 
@@ -113,38 +130,54 @@ fig
 
 ```{r}
 p1 <- plot_ly(df, x = ~lande20, y = ~lande250, 
-               color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
-               text = ~id,size = 20,legendgroup=~milieu)
+               #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20)
 p1 <- p1 %>% add_markers()
 p1 <- p1 %>% layout(xaxis = list(title =list(text='% lande 20 m',standoff=3)),
                     yaxis = list(title = '% lande 250 m'),
                     legend = list(title=list(text='<b> Habitat </b>')))
 p1
 
-htmlwidgets::saveWidget(as_widget(p1), "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Plot/lande20_lande250.html")
+htmlwidgets::saveWidget(as_widget(p1), "figures/lande20_lande250_Bauges.html")
+# Data vizualization with ggplot2 (conditioning plot, histograms)
+```
+
+```{r}
+df$landeElargie20<-df$lande20
+df$landeElargie250<-df$lande250+df$ecotoneLP250
+
+p1 <- plot_ly(df, x = ~landeElargie20, y = ~landeElargie250, 
+               #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20)
+p1 <- p1 %>% add_markers()
+p1 <- p1 %>% layout(xaxis = list(title =list(text='% lande élargie 20 m',standoff=3)),
+                    yaxis = list(title = '% lande élargie 250 m'),
+                    legend = list(title=list(text='<b> Habitat </b>')))
+p1
+
+htmlwidgets::saveWidget(as_widget(p1), "figures/lande20_lande250_elargie_Bauges.html")
 # Data vizualization with ggplot2 (conditioning plot, histograms)
 ```
 
 
 ```{r}
-quantile(df$slope)
-df$slopeCAT<-cut(df$slope, c(0,27,100))
+df$prairie20<-df$prairieA20+df$prairieS20+df$prairieM20
+df$prairie250<-df$prairieA250+df$prairieS250+df$prairieM250
 
-my_colors<- c('darkgreen','orange','lightblue','blue')
-p1<-ggplot(data = df, aes(x=milieu,y=elevation,fill=milieu)) + ggtitle("")+
-  geom_violin(alpha=0.5)+
-   geom_jitter(height = 0, width = 0.1, color = "black") +
-  scale_fill_manual(values = my_colors) +
- labs(x ="Habitat",y = "Elevation (m)")+
-  theme(panel.border = element_rect(linetype="solid",colour = "grey80", fill="NA", linewidth = 1),panel.background = element_rect(fill="white"))+
-  theme(axis.title.x = element_text(face="bold",size=10))+theme(axis.title.y = element_text(face="bold",size=10))+
-  theme(axis.line.x= element_line(colour = "black"),axis.line.y= element_line(colour = "black"))+
-  theme(axis.text.x = element_text(colour="black"), axis.text.y = element_text(colour="black"))+theme(axis.line= element_line(colour = "black"))+
-  theme(axis.text = element_text(size=10))+theme(plot.title = element_text(hjust = 0.5))+
-  theme(strip.text = element_text(size = 12, colour = "black"))+
-  theme(legend.text=element_text(size=10))+theme(legend.title=element_text(size=10))+theme(legend.position="bottom")
+p1 <- plot_ly(df, x = ~prairie20, y = ~prairie250, 
+               #color = ~milieu,colors = c('darkgreen','orange','lightblue','blue'),
+               text = ~Station,size = 20)
+p1 <- p1 %>% add_markers()
+p1 <- p1 %>% layout(xaxis = list(title =list(text='% prairie 20 m',standoff=3)),
+                    yaxis = list(title = '% prairie 250 m'),
+                    legend = list(title=list(text='<b> Habitat </b>')))
 p1
 
+htmlwidgets::saveWidget(as_widget(p1), "figures/prairie20_prairie250_Bauges.html")
+# Data vizualization with ggplot2 (conditioning plot, histograms)
+```
+
+```{r}
 quantile(df$lande250)
 df$lande250CAT<-cut(df$lande250, c(-0.01,0.50,1))
 summary(factor(df$lande250CAT))
@@ -165,16 +198,19 @@ p2<-ggplot(data = df, aes(x=lande20)) + ggtitle("")+
 p2
 
 ppi <- 300
-png("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Plot/conditionning_plot_landes.png", width=6*ppi, height=3.5*ppi, res=ppi)
+png("figures/conditionning_plot_landes_Bauges.png", width=6*ppi, height=3.5*ppi, res=ppi)
 p2
 dev.off()
 
-dfm<-df%>%group_by(milieu)%>%
-       summarize(nhabitat= n())
 
-p3<-ggplot(data = dfm, aes(x=milieu,y=nhabitat)) + ggtitle("")+
-  geom_bar(stat="identity",fill = c('darkgreen','orange','lightblue','blue'))+
+dfm<-orion20%>%group_by(milieu,sampling)%>%
+       summarize(nhabitat= n())
+orion20$sampling
+p3<-ggplot(data = dfm, aes(x=milieu,y=nhabitat,fill = milieu)) + ggtitle("")+
+  facet_grid( sampling~. )+
+  geom_bar(stat="identity")+
   labs(x ="Habitat",y = "No. of sites")+
+  scale_fill_manual(values = c('darkgreen','orange','lightgreen','darkblue','blue','grey','black'))+
   geom_text(aes(label=nhabitat), vjust=0) +  theme(panel.border = element_rect(linetype="solid",colour = "grey80",     fill="NA", linewidth = 1),panel.background = element_rect(fill="white"))+
   theme(axis.title.x = element_text(face="bold",size=10))+theme(axis.title.y = element_text(face="bold",size=10))+
   theme(axis.line.x= element_line(colour = "black"),axis.line.y= element_line(colour = "black"))+
@@ -184,28 +220,29 @@ p3<-ggplot(data = dfm, aes(x=milieu,y=nhabitat)) + ggtitle("")+
   theme(legend.text=element_text(size=10))+theme(legend.title=element_text(size=10))+theme(legend.position="bottom")
 p3
 
-ppi <- 100
-png("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Plot/barplot_sites_habitat.png", width=5*ppi, height=5*ppi, res=ppi)
+ppi <- 250
+png("figures/barplot_sites_habitat_Bauges.png", width=7*ppi, height=8*ppi, res=ppi)
 p3
 dev.off()
+
+
 
 ```
 
 # Plot ORION raster with site locations (zoom in) 
 ```{r}
 
-dir.posEnvironmentalLayers1 = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/LC_pred_CCVCMB_2806023_FINAL.tif"
+dir.posEnvironmentalLayers1 = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/ORION/PRED/LC_pred_BAUGES_08062023.tif"
 orionrast1<-rast(dir.posEnvironmentalLayers1)
 
-dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/CamTrap_location"  
-name.points = "camtrap_loc"
+dir.posPoints = "/Users/jeremyfroidevaux/Documents/Herbiland/GIS/Bauges_camtrap"  
+name.points = "camtrap_locBauges"
 loc<-st_read(dsn = dir.posPoints, layer = name.points)
-loc <- st_transform(loc,crs=32632)
 buf20 <- st_buffer(loc,dist=20)
 buf250 <- st_buffer(loc,dist=250)
 
 centroid <- st_coordinates(loc$geometry)
-sites<-data.frame(id = loc$id,Lat = centroid[, "X"],  Lon = centroid[, "Y"])
+sites<-data.frame(id = loc$Station,Lat = centroid[, "X"],  Lon = centroid[, "Y"])
 
 plot(orionrast1)
 

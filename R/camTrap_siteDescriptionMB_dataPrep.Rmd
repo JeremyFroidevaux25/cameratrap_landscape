@@ -9,6 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/jeremyfroidevaux/Library/CloudStorage/GoogleDrive-jfroidevaux@creamontblanc.org/Drive partagés/prototool/herbiland/analyses/cameratrap/cameratrap_landscape")
 rm(list=ls()) 
 ```
 
@@ -23,15 +24,15 @@ lapply(library, require, character.only = TRUE)
 ## Data manipulation with raster and shape files
 ### Open CameraTrap csv file (and landus csv file if needed)
 ```{r}
-camtrap<-fread("/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfo_20231116.csv")
+camtrap<-fread("data/camerainfo_20231116.csv")
 camtrap<-camtrap[camtrap$running=="Y",] #camtrap active
 camtrapVCM<-camtrap[camtrap$lat>45.85,] #ComCom Chamonix
 camtrapVCM$milieu<-gsub("lande sur crete", "lande",camtrapVCM$milieu)
 camtrapVCM<-camtrapVCM[!grepl("campagnol", camtrapVCM$Station),] #remove site with campagnol
 camtrapVCM_orchamp<-camtrapVCM[grepl("Y", camtrapVCM$ORCHAMP),] #focuis on orchamlp sites
 
-write.csv(camtrapVCM,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfo_20231113_sel.csv")
-write.csv(camtrapVCM_orchamp,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/camerainfo_orchamp_20231113_sel.csv")
+#write.csv(camtrapVCM,"data/camerainfo_20231113_sel.csv")
+#write.csv(camtrapVCM_orchamp,"data/camerainfo_orchamp_20231113_sel.csv")
 
 #camtrapPMB<-camtrap[camtrap$lat<45.85,] #ComCom vallée du mont blanc
 
@@ -165,7 +166,7 @@ divf<-df_list %>% reduce(full_join, by='plot_id')
 divf<-divf %>% dplyr::select(-contains("scale"))
 colnames(divf)[colnames(divf) == "plot_id"] <- "id"
 
-write.csv(divf, "/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/landscapeMetric_outputVCMsel.csv", row.names=FALSE) 
+write.csv(divf, "output/landscapeMetric_outputVCMsel.csv", row.names=FALSE) 
 
 ```
 
@@ -212,5 +213,6 @@ demCT<-data.frame(id=camtrapVCM$Station, demCT)
 demCT<-demCT[ -c(2,4,6) ]
 colnames(demCT)[2] ="elevation"
 plot(camtrapVCM$alt,demCT$elevation)
-write.csv(demCT,"/Users/jeremyfroidevaux/Documents/Herbiland/CameraTrap/Analysis/Landcover_output/dem_outputCVMsel.csv")
+write.csv(demCT,"o
+          utput/dem_outputCVMsel.csv")
 ```
