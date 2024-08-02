@@ -1,6 +1,6 @@
 # Projet CREA HerbiLand
 #### https://creamontblanc.org/fr/herbiland-herbivores-landes-montagne/
-# Analyse des habitats autour des camtrap
+# Analyse des habitats autour des camtraps
 
 #### Il y a 4 scripts : 
 
